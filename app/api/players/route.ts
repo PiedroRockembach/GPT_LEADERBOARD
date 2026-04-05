@@ -17,15 +17,17 @@ function validateInput(body: unknown): { valid: true; data: PlayerInput } | { va
     return { valid: false, message: "Campos numéricos inválidos." };
   }
 
+  const normalizedData: PlayerInput = {
+    nome: nome.trim(),
+    vitorias: vitorias as number,
+    kd: kd as number,
+    score: score as number,
+    partidas: partidas as number,
+  };
+
   return {
     valid: true,
-    data: {
-      nome: nome.trim(),
-      vitorias,
-      kd,
-      score,
-      partidas,
-    },
+    data: normalizedData,
   };
 }
 
