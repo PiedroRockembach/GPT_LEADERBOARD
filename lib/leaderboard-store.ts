@@ -15,24 +15,24 @@ const INITIAL_DATA: LeaderboardData = {
       id: randomUUID(),
       nome: "FURY Nova",
       vitorias: 28,
-      kd: 1.93,
-      score: 8940,
+      kills: 93,
+      deaths: 48,
       partidas: 42,
     },
     {
       id: randomUUID(),
       nome: "Alpha Syndicate",
       vitorias: 24,
-      kd: 1.71,
-      score: 8120,
+      kills: 82,
+      deaths: 48,
       partidas: 40,
     },
     {
       id: randomUUID(),
       nome: "Rush Unit",
       vitorias: 24,
-      kd: 1.62,
-      score: 7860,
+      kills: 80,
+      deaths: 49,
       partidas: 44,
     },
   ],
@@ -44,12 +44,10 @@ function sortPlayers(players: Player[]): Player[] {
       return b.vitorias - a.vitorias;
     }
 
-    if (b.kd !== a.kd) {
-      return b.kd - a.kd;
-    }
-
-    if (b.score !== a.score) {
-      return b.score - a.score;
+    const bKd = b.kills / b.deaths;
+    const aKd = a.kills / a.deaths;
+    if (bKd !== aKd) {
+      return bKd - aKd;
     }
 
     return b.partidas - a.partidas;

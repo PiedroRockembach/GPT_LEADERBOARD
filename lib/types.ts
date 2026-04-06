@@ -2,8 +2,8 @@ export type Player = {
   id: string;
   nome: string;
   vitorias: number;
-  kd: number;
-  score: number;
+  kills: number;
+  deaths: number;
   partidas: number;
 };
 

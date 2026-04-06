@@ -6,16 +6,16 @@ import { Player } from "@/lib/types";
 type FormState = {
   nome: string;
   vitorias: string;
-  kd: string;
-  score: string;
+  kills: string;
+  deaths: string;
   partidas: string;
 };
 
 const initialForm: FormState = {
   nome: "",
   vitorias: "",
-  kd: "",
-  score: "",
+  kills: "",
+  deaths: "",
   partidas: "",
 };
 
@@ -63,8 +63,8 @@ export default function Home() {
     setForm({
       nome: player.nome,
       vitorias: String(player.vitorias),
-      kd: String(player.kd),
-      score: String(player.score),
+      kills: String(player.kills),
+      deaths: String(player.deaths),
       partidas: String(player.partidas),
     });
   }
@@ -78,8 +78,8 @@ export default function Home() {
       ...(editingId ? { id: editingId } : {}),
       nome: form.nome,
       vitorias: Number(form.vitorias),
-      kd: Number(form.kd),
-      score: Number(form.score),
+      kills: Number(form.kills),
+      deaths: Number(form.deaths),
       partidas: Number(form.partidas),
     };
 
@@ -139,9 +139,9 @@ export default function Home() {
     <main className="page-shell">
       <section className="title-card">
 
-        <h1>The Jokers Killers Leaderboard</h1>
+        <h1>Ranking The Jokers Killers</h1>
         <p>
-          Ranking ordenado por <strong>Vitórias</strong>, <strong>KD</strong>, <strong>Score</strong> e <strong>Partidas</strong>.
+          Ranking ordenado por <strong>Vitórias</strong>, <strong>KD</strong> e <strong>Partidas</strong>.
         </p>
       </section>
 
@@ -172,27 +172,26 @@ export default function Home() {
           </label>
 
           <label>
-            KD
+            Kills
             <input
               required
               type="number"
               min="0"
-              step="0.01"
-              value={form.kd}
-              onChange={(event) => setForm((prev) => ({ ...prev, kd: event.target.value }))}
+              value={form.kills}
+              onChange={(event) => setForm((prev) => ({ ...prev, kills: event.target.value }))}
             />
           </label>
 
-          {/* <label>
-            Score
+          <label>
+            Deaths
             <input
               required
               type="number"
               min="0"
-              value={form.score}
-              onChange={(event) => setForm((prev) => ({ ...prev, score: event.target.value }))}
+              value={form.deaths}
+              onChange={(event) => setForm((prev) => ({ ...prev, deaths: event.target.value }))}
             />
-          </label> */}
+          </label>
 
           <label>
             Partidas
@@ -235,8 +234,9 @@ export default function Home() {
                     <th>#</th>
                     <th>Nome</th>
                     <th>Vitórias</th>
+                    <th>Kills</th>
+                    <th>Deaths</th>
                     <th>KD</th>
-                    <th>Score</th>
                     <th>Partidas</th>
                     <th>Ações</th>
                   </tr>
@@ -247,8 +247,9 @@ export default function Home() {
                       <td>{index + 1}</td>
                       <td>{player.nome}</td>
                       <td>{player.vitorias}</td>
-                      <td>{player.kd.toFixed(2)}</td>
-                      <td>{player.score}</td>
+                      <td>{player.kills}</td>
+                      <td>{player.deaths}</td>
+                      <td>{(player.kills / player.deaths).toFixed(2)}</td>
                       <td>{player.partidas}</td>
                       <td className="actions">
                         <button type="button" className="icon-button" onClick={() => fillForm(player)}>

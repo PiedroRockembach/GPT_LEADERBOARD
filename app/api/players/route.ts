@@ -7,21 +7,21 @@ function validateInput(body: unknown): { valid: true; data: PlayerInput } | { va
     return { valid: false, message: "Payload inválido." };
   }
 
-  const { nome, vitorias, kd, score, partidas } = body as Record<string, unknown>;
+  const { nome, vitorias, kills, deaths, partidas } = body as Record<string, unknown>;
 
   if (typeof nome !== "string" || !nome.trim()) {
     return { valid: false, message: "Nome é obrigatório." };
   }
 
-  if ([vitorias, kd, score, partidas].some((value) => typeof value !== "number" || Number.isNaN(value))) {
+  if ([vitorias, kills, deaths, partidas].some((value) => typeof value !== "number" || Number.isNaN(value))) {
     return { valid: false, message: "Campos numéricos inválidos." };
   }
 
   const normalizedData: PlayerInput = {
     nome: nome.trim(),
     vitorias: vitorias as number,
-    kd: kd as number,
-    score: score as number,
+    kills: kills as number,
+    deaths: deaths as number,
     partidas: partidas as number,
   };
 
