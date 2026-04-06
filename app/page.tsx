@@ -138,8 +138,8 @@ export default function Home() {
   return (
     <main className="page-shell">
       <section className="title-card">
-        <p className="chip">NEXT.JS FULLSTACK</p>
-        <h1>E-Sports Leaderboard</h1>
+
+        <h1>The Jokers Killers Leaderboard</h1>
         <p>
           Ranking ordenado por <strong>Vitórias</strong>, <strong>KD</strong>, <strong>Score</strong> e <strong>Partidas</strong>.
         </p>
@@ -219,7 +219,7 @@ export default function Home() {
 
         <article className="panel">
           <div className="table-header">
-            <h2>Times</h2>
+            <h2>Jogadores</h2>
             <span>{players.length} registros</span>
           </div>
 
