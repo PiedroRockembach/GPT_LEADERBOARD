@@ -16,7 +16,7 @@ body {
   margin: 0;
   font-family: var(--font-body), sans-serif;
   color: var(--text);
-  height: 100vh;
+  min-height: 100dvh;
   background:
     radial-gradient(
       circle at 10% 0%,
@@ -193,7 +193,120 @@ th {
 }
 
 @media (max-width: 960px) {
+  body {
+    background-attachment: scroll;
+  }
+
   .grid-layout {
     grid-template-columns: 1fr;
+  }
+
+  .page-shell {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .title-card,
+  .panel {
+    border-radius: 14px;
+  }
+
+  .table-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .button-row {
+    flex-direction: column;
+  }
+
+  button,
+  .secondary {
+    width: 100%;
+  }
+
+  .icon-button {
+    width: auto;
+  }
+
+  .table-wrapper {
+    overflow: visible;
+  }
+
+  table,
+  thead,
+  tbody,
+  tr,
+  td {
+    display: block;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  tr {
+    border: 1px solid #283066;
+    border-radius: 14px;
+    padding: 0.75rem;
+    background: rgba(7, 10, 27, 0.58);
+  }
+
+  td {
+    border-bottom: 0;
+    padding: 0.35rem 0;
+    white-space: normal;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: #97acff;
+    flex: 0 0 auto;
+  }
+
+  td.actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  td.actions::before {
+    margin-bottom: 0.25rem;
+  }
+
+  td.actions .icon-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  h1 {
+    font-size: 1.6rem;
+    line-height: 1.1;
+  }
+
+  h2 {
+    font-size: 1.15rem;
+  }
+
+  .title-card {
+    padding: 1rem;
+  }
+
+  .panel {
+    padding: 0.85rem;
+  }
+
+  input {
+    height: 2.9rem;
   }
 }

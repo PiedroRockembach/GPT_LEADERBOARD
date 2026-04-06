@@ -245,19 +245,19 @@ export default function Home() {
                 <tbody>
                   {players.map((player, index) => (
                     <tr key={player.id}>
-                      <td>{index + 1}</td>
-                      <td>{player.nome}</td>
-                      <td>{player.vitorias}</td>
-                      <td>{player.kills}</td>
-                      <td>{player.deaths}</td>
-                      <td>
+                      <td data-label="#">{index + 1}</td>
+                      <td data-label="Nome">{player.nome}</td>
+                      <td data-label="Vitórias">{player.vitorias}</td>
+                      <td data-label="Kills">{player.kills}</td>
+                      <td data-label="Deaths">{player.deaths}</td>
+                      <td data-label="KD">
                         {(() => {
                           const kd = calculateKd(player.kills, player.deaths);
                           return kd === Number.POSITIVE_INFINITY ? "∞" : kd.toFixed(2);
                         })()}
                       </td>
-                      <td>{player.partidas}</td>
-                      <td className="actions">
+                      <td data-label="Partidas">{player.partidas}</td>
+                      <td data-label="Ações" className="actions">
                         <button type="button" className="icon-button" onClick={() => fillForm(player)}>
                           Editar
                         </button>
