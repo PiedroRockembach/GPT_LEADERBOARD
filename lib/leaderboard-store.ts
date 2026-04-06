@@ -1,9 +1,7 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { neon } from "@neondatabase/serverless";
 import { Player, PlayerInput } from "@/lib/types";
-
-const DATA_FILE = path.join(process.cwd(), "data", "leaderboard.json");
+import { calculateKd } from "@/lib/kd";
 
 type LeaderboardData = {
   players: Player[];
@@ -12,7 +10,7 @@ type LeaderboardData = {
 const INITIAL_DATA: LeaderboardData = {
   players: [
     {
-      id: randomUUID(),
+      id: "seed-fury-nova",
       nome: "FURY Nova",
       vitorias: 28,
       kills: 93,
@@ -20,7 +18,7 @@ const INITIAL_DATA: LeaderboardData = {
       partidas: 42,
     },
     {
-      id: randomUUID(),
+      id: "seed-alpha-syndicate",
       nome: "Alpha Syndicate",
       vitorias: 24,
       kills: 82,
@@ -28,7 +26,7 @@ const INITIAL_DATA: LeaderboardData = {
       partidas: 40,
     },
     {
-      id: randomUUID(),
+      id: "seed-rush-unit",
       nome: "Rush Unit",
       vitorias: 24,
       kills: 80,
@@ -44,8 +42,8 @@ function sortPlayers(players: Player[]): Player[] {
       return b.vitorias - a.vitorias;
     }
 
-    const bKd = b.kills / b.deaths;
-    const aKd = a.kills / a.deaths;
+    const bKd = calculateKd(b.kills, b.deaths);
+    const aKd = calculateKd(a.kills, a.deaths);
     if (bKd !== aKd) {
       return bKd - aKd;
     }
@@ -54,27 +52,61 @@ function sortPlayers(players: Player[]): Player[] {
   });
 }
 
-async function ensureDataFile(): Promise<void> {
-  try {
-    await fs.access(DATA_FILE);
-  } catch {
-    await fs.mkdir(path.dirname(DATA_FILE), { recursive: true });
-    await fs.writeFile(DATA_FILE, JSON.stringify(INITIAL_DATA, null, 2), "utf-8");
+function getSqlClient() {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is not configured.");
+  }
+
+  return neon(databaseUrl);
+}
+
+async function ensureTable(): Promise<void> {
+  const sql = getSqlClient();
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS leaderboard_players (
+      id text PRIMARY KEY,
+      nome text NOT NULL,
+      vitorias integer NOT NULL CHECK (vitorias >= 0),
+      kills integer NOT NULL CHECK (kills >= 0),
+      deaths integer NOT NULL CHECK (deaths >= 0),
+      partidas integer NOT NULL CHECK (partidas >= 0)
+    )
+  `;
+
+  const countResult = await sql`SELECT COUNT(*)::text AS count FROM leaderboard_players`;
+  const count = Number((countResult[0] as { count?: string } | undefined)?.count ?? 0);
+
+  if (count === 0) {
+    for (const player of INITIAL_DATA.players) {
+      await sql`
+        INSERT INTO leaderboard_players (id, nome, vitorias, kills, deaths, partidas)
+        VALUES (${player.id}, ${player.nome}, ${player.vitorias}, ${player.kills}, ${player.deaths}, ${player.partidas})
+        ON CONFLICT (id) DO NOTHING
+      `;
+    }
   }
 }
 
 async function readData(): Promise<LeaderboardData> {
-  await ensureDataFile();
-  const raw = await fs.readFile(DATA_FILE, "utf-8");
-  const parsed = JSON.parse(raw) as LeaderboardData;
+  const sql = getSqlClient();
 
-  parsed.players = sortPlayers(parsed.players);
-  return parsed;
-}
+  await ensureTable();
 
-async function writeData(data: LeaderboardData): Promise<void> {
-  data.players = sortPlayers(data.players);
-  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
+  const result = await sql`
+    SELECT id, nome, vitorias, kills, deaths, partidas
+    FROM leaderboard_players
+    ORDER BY
+      vitorias DESC,
+      CASE WHEN deaths = 0 THEN 999999999 ELSE kills::numeric / deaths END DESC,
+      partidas DESC
+  `;
+
+  return {
+    players: sortPlayers(result as Player[]),
+  };
 }
 
 export async function listPlayers(): Promise<Player[]> {
@@ -83,48 +115,44 @@ export async function listPlayers(): Promise<Player[]> {
 }
 
 export async function addPlayer(input: PlayerInput): Promise<Player> {
-  const data = await readData();
+  const sql = getSqlClient();
+
+  await ensureTable();
 
   const player: Player = {
     id: randomUUID(),
     ...input,
   };
 
-  data.players.push(player);
-  await writeData(data);
+  const result = await sql`
+    INSERT INTO leaderboard_players (id, nome, vitorias, kills, deaths, partidas)
+    VALUES (${player.id}, ${player.nome}, ${player.vitorias}, ${player.kills}, ${player.deaths}, ${player.partidas})
+    RETURNING id, nome, vitorias, kills, deaths, partidas
+  `;
 
-  return player;
+  return ((result as Player[])[0] ?? player) as Player;
 }
 
 export async function updatePlayer(id: string, input: PlayerInput): Promise<Player | null> {
-  const data = await readData();
-  const index = data.players.findIndex((player) => player.id === id);
+  const sql = getSqlClient();
 
-  if (index < 0) {
-    return null;
-  }
+  await ensureTable();
 
-  const updated: Player = {
-    id,
-    ...input,
-  };
+  const result = await sql`
+    UPDATE leaderboard_players
+    SET nome = ${input.nome}, vitorias = ${input.vitorias}, kills = ${input.kills}, deaths = ${input.deaths}, partidas = ${input.partidas}
+    WHERE id = ${id}
+    RETURNING id, nome, vitorias, kills, deaths, partidas
+  `;
 
-  data.players[index] = updated;
-  await writeData(data);
-
-  return updated;
+  return ((result as Player[])[0] ?? null) as Player | null;
 }
 
 export async function deletePlayer(id: string): Promise<boolean> {
-  const data = await readData();
-  const filtered = data.players.filter((player) => player.id !== id);
+  const sql = getSqlClient();
 
-  if (filtered.length === data.players.length) {
-    return false;
-  }
+  await ensureTable();
 
-  data.players = filtered;
-  await writeData(data);
-
-  return true;
+  const result = await sql`DELETE FROM leaderboard_players WHERE id = ${id} RETURNING id`;
+  return (result as Array<{ id: string }>).length > 0;
 }

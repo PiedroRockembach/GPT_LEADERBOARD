@@ -4,8 +4,9 @@ Aplicação fullstack com **Next.js (App Router)** para gerenciar uma leaderboar
 
 - nome
 - vitórias
-- KD
-- score
+- kills
+- deaths
+- KD calculado automaticamente
 - partidas
 
 ## Funcionalidades
@@ -13,12 +14,11 @@ Aplicação fullstack com **Next.js (App Router)** para gerenciar uma leaderboar
 - Adicionar registros
 - Editar registros
 - Remover registros
-- Persistência no servidor via arquivo JSON (`data/leaderboard.json`)
+- Persistência no servidor via **Neon**
 - Ordenação automática por:
   1. vitórias (desc)
-  2. KD (desc)
-  3. score (desc)
-  4. partidas (desc)
+  2. KD calculado por `kills / deaths` (desc)
+  3. partidas (desc)
 
 ## Rodando localmente
 
@@ -29,6 +29,18 @@ npm run dev
 
 Abra: `http://localhost:3000`
 
+## Banco de dados
+
+Este projeto agora usa **Neon** diretamente. Crie um banco no Neon e copie a string de conexão para `DATABASE_URL`.
+
+Para rodar localmente, crie um arquivo `.env.local` com:
+
+```bash
+DATABASE_URL="postgresql://USER:PASSWORD@HOST/DB?sslmode=require"
+```
+
+No deploy na Vercel, adicione a mesma variável em Environment Variables.
+
 ## API
 
 - `GET /api/players` → lista jogadores/time
@@ -38,6 +50,6 @@ Abra: `http://localhost:3000`
 
 ## Deploy na Vercel
 
-A aplicação está pronta para deploy em Vercel. Contudo, como a persistência padrão está em arquivo local, em ambientes serverless essa escrita pode não ser durável entre reinícios/instâncias.
+Depois de configurar `DATABASE_URL`, o endpoint `/api/players` passa a persistir os dados no Neon e funciona normalmente em ambiente serverless.
 
-Para produção real na Vercel, troque a camada de persistência para um banco gerenciado (ex.: Vercel Postgres, Neon, Supabase, PlanetScale).
+Se o banco estiver vazio na primeira execução, o projeto cria a tabela `leaderboard_players` e insere alguns jogadores iniciais automaticamente.

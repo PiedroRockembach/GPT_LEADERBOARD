@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { calculateKd } from "@/lib/kd";
 import { Player } from "@/lib/types";
 
 type FormState = {
@@ -249,7 +250,12 @@ export default function Home() {
                       <td>{player.vitorias}</td>
                       <td>{player.kills}</td>
                       <td>{player.deaths}</td>
-                      <td>{(player.kills / player.deaths).toFixed(2)}</td>
+                      <td>
+                        {(() => {
+                          const kd = calculateKd(player.kills, player.deaths);
+                          return kd === Number.POSITIVE_INFINITY ? "∞" : kd.toFixed(2);
+                        })()}
+                      </td>
                       <td>{player.partidas}</td>
                       <td className="actions">
                         <button type="button" className="icon-button" onClick={() => fillForm(player)}>
