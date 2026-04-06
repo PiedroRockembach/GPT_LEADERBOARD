@@ -24,8 +24,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
-      <body className={`${orbitron.variable} ${rajdhani.variable}`}>{children}</body>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body className={`${orbitron.variable} ${rajdhani.variable}`} suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }

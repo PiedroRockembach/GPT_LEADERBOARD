@@ -16,7 +16,19 @@ body {
   margin: 0;
   font-family: var(--font-body), sans-serif;
   color: var(--text);
-  background: radial-gradient(circle at 10% 0%, #1b1e52 0%, #090a16 46%), var(--bg);
+  height: 100vh;
+  background:
+    radial-gradient(
+      circle at 10% 0%,
+      rgba(27, 30, 82, 0.88) 0%,
+      rgba(9, 10, 22, 0.92) 46%
+    ),
+    linear-gradient(
+      rgba(9, 10, 22, 0.45),
+      rgba(9, 10, 22, 0.45)
+    ),
+    url("/images/TJK.jpeg") left top / cover no-repeat,
+    var(--bg);
 }
 
 .page-shell {
@@ -27,7 +39,7 @@ body {
 
 .title-card {
   border: 1px solid var(--panel-border);
-  background: linear-gradient(145deg, rgba(13, 18, 43, 0.9), rgba(13, 18, 43, 0.5));
+  background: linear-gradient(145deg, rgba(13, 18, 43, 0.396), rgba(13, 18, 43, 0.33));
   border-radius: 18px;
   padding: 1.2rem 1.3rem;
   margin-bottom: 1rem;
@@ -59,7 +71,7 @@ h2 {
 }
 
 .panel {
-  background: rgba(15, 20, 49, 0.94);
+  background: rgba(15, 20, 49, 0.637);
   border: 1px solid var(--panel-border);
   border-radius: 16px;
   padding: 1rem;

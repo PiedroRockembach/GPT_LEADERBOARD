@@ -156,7 +156,7 @@ export default function Home() {
               type="text"
               value={form.nome}
               onChange={(event) => setForm((prev) => ({ ...prev, nome: event.target.value }))}
-              placeholder="Ex.: Team Phoenix"
+              placeholder="Ex.: YanGOD"
             />
           </label>
 
@@ -183,7 +183,7 @@ export default function Home() {
             />
           </label>
 
-          <label>
+          {/* <label>
             Score
             <input
               required
@@ -192,7 +192,7 @@ export default function Home() {
               value={form.score}
               onChange={(event) => setForm((prev) => ({ ...prev, score: event.target.value }))}
             />
-          </label>
+          </label> */}
 
           <label>
             Partidas
