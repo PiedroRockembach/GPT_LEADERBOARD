@@ -28,7 +28,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
 
-  const title = useMemo(() => (editingId ? "Editar time" : "Adicionar time"), [editingId]);
+  const title = useMemo(() => (editingId ? "Editar Jogador" : "Adicionar Jogador"), [editingId]);
 
   async function fetchPlayers() {
     setLoading(true);
