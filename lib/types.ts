@@ -4,6 +4,7 @@ export type Player = {
   vitorias: number;
   kills: number;
   deaths: number;
+  assists: number;
   partidas: number;
 };
 

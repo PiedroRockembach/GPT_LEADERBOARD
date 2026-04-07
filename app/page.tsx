@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { calculateKd } from "@/lib/kd";
+import { calculateScore, calculateWinRate } from "@/lib/kd";
 import { Player } from "@/lib/types";
 
 type FormState = {
@@ -9,6 +9,7 @@ type FormState = {
   vitorias: string;
   kills: string;
   deaths: string;
+  assists: string;
   partidas: string;
 };
 
@@ -17,6 +18,7 @@ const initialForm: FormState = {
   vitorias: "",
   kills: "",
   deaths: "",
+  assists: "",
   partidas: "",
 };
 
@@ -66,6 +68,7 @@ export default function Home() {
       vitorias: String(player.vitorias),
       kills: String(player.kills),
       deaths: String(player.deaths),
+      assists: String(player.assists),
       partidas: String(player.partidas),
     });
   }
@@ -81,6 +84,7 @@ export default function Home() {
       vitorias: Number(form.vitorias),
       kills: Number(form.kills),
       deaths: Number(form.deaths),
+      assists: Number(form.assists),
       partidas: Number(form.partidas),
     };
 
@@ -142,7 +146,7 @@ export default function Home() {
 
         <h1>Ranking The Jokers Killers</h1>
         <p>
-          Ranking ordenado por <strong>Vitórias</strong>, <strong>KD</strong> e <strong>Partidas</strong>.
+          Ranking ordenado por <strong>Score</strong>, com base em K/D, partidas e vitórias.
         </p>
       </section>
 
@@ -195,6 +199,17 @@ export default function Home() {
           </label>
 
           <label>
+            Assists
+            <input
+              required
+              type="number"
+              min="0"
+              value={form.assists}
+              onChange={(event) => setForm((prev) => ({ ...prev, assists: event.target.value }))}
+            />
+          </label>
+
+          <label>
             Partidas
             <input
               required
@@ -232,41 +247,39 @@ export default function Home() {
               <table>
                 <thead>
                   <tr>
-                    <th>#</th>
+                    <th>Colocação</th>
                     <th>Nome</th>
-                    <th>Vitórias</th>
-                    <th>Kills</th>
-                    <th>Deaths</th>
-                    <th>KD</th>
-                    <th>Partidas</th>
+                    <th>K/D/A</th>
+                    <th>Nº partidas</th>
+                    <th>WR</th>
+                    <th>Score</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {players.map((player, index) => (
-                    <tr key={player.id}>
-                      <td data-label="#">{index + 1}</td>
-                      <td data-label="Nome">{player.nome}</td>
-                      <td data-label="Vitórias">{player.vitorias}</td>
-                      <td data-label="Kills">{player.kills}</td>
-                      <td data-label="Deaths">{player.deaths}</td>
-                      <td data-label="KD">
-                        {(() => {
-                          const kd = calculateKd(player.kills, player.deaths);
-                          return kd === Number.POSITIVE_INFINITY ? "∞" : kd.toFixed(2);
-                        })()}
-                      </td>
-                      <td data-label="Partidas">{player.partidas}</td>
-                      <td data-label="Ações" className="actions">
-                        <button type="button" className="icon-button" onClick={() => fillForm(player)}>
-                          Editar
-                        </button>
-                        <button type="button" className="icon-button danger" onClick={() => void removePlayer(player.id)}>
-                          Remover
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {players.map((player, index) => {
+                    const wr = calculateWinRate(player.vitorias, player.partidas);
+                    const score = calculateScore(player.kills, player.deaths, player.partidas, player.vitorias);
+
+                    return (
+                      <tr key={player.id}>
+                        <td data-label="Colocação">#{index + 1}</td>
+                        <td data-label="Nome">{player.nome}</td>
+                        <td data-label="K/D/A">{player.kills}/{player.deaths}/{player.assists}</td>
+                        <td data-label="Nº partidas">{player.partidas}</td>
+                        <td data-label="WR">{wr.toFixed(1)}%</td>
+                        <td data-label="Score">{Number.isFinite(score) ? score.toFixed(3) : "∞"}</td>
+                        <td data-label="Ações" className="actions">
+                          <button type="button" className="icon-button" onClick={() => fillForm(player)}>
+                            Editar
+                          </button>
+                          <button type="button" className="icon-button danger" onClick={() => void removePlayer(player.id)}>
+                            Remover
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
