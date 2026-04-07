@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import { addPlayer, deletePlayer, listPlayers, updatePlayer } from "@/lib/leaderboard-store";
+import { addPlayer, deletePlayer, listPlayers, updatePlayer, type LeaderboardMode } from "@/lib/leaderboard-store";
 import { PlayerInput } from "@/lib/types";
+
+function parseMode(value: unknown): LeaderboardMode {
+  return value === "X5" ? "RANKED" : "X5";
+}
 
 function validateInput(body: unknown): { valid: true; data: PlayerInput } | { valid: false; message: string } {
   if (!body || typeof body !== "object") {
@@ -32,24 +36,26 @@ function validateInput(body: unknown): { valid: true; data: PlayerInput } | { va
   };
 }
 
-export async function GET() {
-  const players = await listPlayers();
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const players = await listPlayers(parseMode(url.searchParams.get("mode")));
   return NextResponse.json(players);
 }
 
 export async function POST(request: Request) {
-  const payload = validateInput(await request.json());
+  const body = (await request.json()) as Record<string, unknown>;
+  const payload = validateInput(body);
 
   if (!payload.valid) {
     return NextResponse.json({ message: payload.message }, { status: 400 });
   }
 
-  const created = await addPlayer(payload.data);
+  const created = await addPlayer(payload.data, parseMode(body.mode));
   return NextResponse.json(created, { status: 201 });
 }
 
 export async function PUT(request: Request) {
-  const body = (await request.json()) as { id?: string };
+  const body = (await request.json()) as Record<string, unknown>;
 
   if (!body.id) {
     return NextResponse.json({ message: "ID obrigatório." }, { status: 400 });
@@ -61,7 +67,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ message: payload.message }, { status: 400 });
   }
 
-  const updated = await updatePlayer(body.id, payload.data);
+  const updated = await updatePlayer(String(body.id), payload.data);
 
   if (!updated) {
     return NextResponse.json({ message: "Jogador não encontrado." }, { status: 404 });
@@ -71,13 +77,13 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const body = (await request.json()) as { id?: string };
+  const body = (await request.json()) as Record<string, unknown>;
 
   if (!body.id) {
     return NextResponse.json({ message: "ID obrigatório." }, { status: 400 });
   }
 
-  const removed = await deletePlayer(body.id);
+  const removed = await deletePlayer(String(body.id));
 
   if (!removed) {
     return NextResponse.json({ message: "Jogador não encontrado." }, { status: 404 });

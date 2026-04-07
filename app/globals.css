@@ -45,6 +45,30 @@ body {
   margin-bottom: 1rem;
 }
 
+.mode-switcher {
+  display: inline-flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(151, 172, 255, 0.25);
+  background: rgba(7, 10, 27, 0.35);
+}
+
+.mode-button {
+  min-width: 92px;
+  height: 2.2rem;
+  border-radius: 999px;
+  background: transparent;
+  color: #d5ddff;
+  border: 1px solid transparent;
+}
+
+.mode-button.active {
+  color: #03141d;
+  background: linear-gradient(90deg, var(--accent), #99f9ff);
+}
+
 .chip {
   display: inline-flex;
   padding: 0.25rem 0.7rem;

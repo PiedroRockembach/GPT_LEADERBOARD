@@ -1,5 +1,6 @@
 export type Player = {
   id: string;
+  mode: "RANKED" | "X5";
   nome: string;
   vitorias: number;
   kills: number;
@@ -8,4 +9,4 @@ export type Player = {
   partidas: number;
 };
 
-export type PlayerInput = Omit<Player, "id">;
+export type PlayerInput = Omit<Player, "id" | "mode">;

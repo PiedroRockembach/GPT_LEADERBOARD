@@ -1,8 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { calculateScore, calculateWinRate } from "@/lib/kd";
+import { calculateKd, calculateScore, calculateWinRate } from "@/lib/kd";
 import { Player } from "@/lib/types";
+
+type LeaderboardMode = "RANKED" | "X5";
 
 type FormState = {
   nome: string;
@@ -23,6 +25,7 @@ const initialForm: FormState = {
 };
 
 export default function Home() {
+  const [mode, setMode] = useState<LeaderboardMode>("RANKED");
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -32,12 +35,12 @@ export default function Home() {
 
   const title = useMemo(() => (editingId ? "Editar Jogador" : "Adicionar Jogador"), [editingId]);
 
-  async function fetchPlayers() {
+  async function fetchPlayers(selectedMode: LeaderboardMode) {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/players", { cache: "no-store" });
+      const response = await fetch(`/api/players?mode=${selectedMode}`, { cache: "no-store" });
 
       if (!response.ok) {
         throw new Error("Falha ao buscar leaderboard.");
@@ -53,8 +56,9 @@ export default function Home() {
   }
 
   useEffect(() => {
-    void fetchPlayers();
-  }, []);
+    clearForm();
+    void fetchPlayers(mode);
+  }, [mode]);
 
   function clearForm() {
     setForm(initialForm);
@@ -80,6 +84,7 @@ export default function Home() {
 
     const payload = {
       ...(editingId ? { id: editingId } : {}),
+      mode,
       nome: form.nome,
       vitorias: Number(form.vitorias),
       kills: Number(form.kills),
@@ -105,7 +110,7 @@ export default function Home() {
       }
 
       clearForm();
-      await fetchPlayers();
+      await fetchPlayers(mode);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado.");
     } finally {
@@ -134,7 +139,7 @@ export default function Home() {
         clearForm();
       }
 
-      await fetchPlayers();
+      await fetchPlayers(mode);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado.");
     }
@@ -148,6 +153,22 @@ export default function Home() {
         <p>
           Ranking ordenado por <strong>Score</strong>, com base em K/D, partidas e vitórias.
         </p>
+        <div className="mode-switcher">
+          <button
+            type="button"
+            className={mode === "RANKED" ? "mode-button active" : "mode-button"}
+            onClick={() => setMode("RANKED")}
+          >
+            RANKED
+          </button>
+          <button
+            type="button"
+            className={mode === "X5" ? "mode-button active" : "mode-button"}
+            onClick={() => setMode("X5")}
+          >
+            X5
+          </button>
+        </div>
       </section>
 
       <section className="grid-layout">
@@ -234,7 +255,7 @@ export default function Home() {
 
         <article className="panel">
           <div className="table-header">
-            <h2>Jogadores</h2>
+            <h2>{mode}</h2>
             <span>{players.length} registros</span>
           </div>
 
@@ -249,6 +270,7 @@ export default function Home() {
                   <tr>
                     <th>Colocação</th>
                     <th>Nome</th>
+                    <th>K/D</th>
                     <th>K/D/A</th>
                     <th>Nº partidas</th>
                     <th>WR</th>
@@ -258,13 +280,15 @@ export default function Home() {
                 </thead>
                 <tbody>
                   {players.map((player, index) => {
+                    const kd = calculateKd(player.kills, player.deaths);
                     const wr = calculateWinRate(player.vitorias, player.partidas);
-                    const score = calculateScore(player.kills, player.deaths, player.partidas, player.vitorias);
+                    const score = calculateScore(player.kills, player.deaths, player.partidas, player.vitorias, mode);
 
                     return (
                       <tr key={player.id}>
                         <td data-label="Colocação">#{index + 1}</td>
                         <td data-label="Nome">{player.nome}</td>
+                        <td data-label="K/D">{kd === Number.POSITIVE_INFINITY ? "∞" : kd.toFixed(2)}</td>
                         <td data-label="K/D/A">{player.kills}/{player.deaths}/{player.assists}</td>
                         <td data-label="Nº partidas">{player.partidas}</td>
                         <td data-label="WR">{wr.toFixed(1)}%</td>

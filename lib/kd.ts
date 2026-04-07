@@ -14,7 +14,13 @@ export function calculateWinRate(vitorias: number, partidas: number): number {
   return (vitorias / partidas) * 100;
 }
 
-export function calculateScore(kills: number, deaths: number, partidas: number, vitorias: number): number {
+export function calculateScore(
+  kills: number,
+  deaths: number,
+  partidas: number,
+  vitorias: number,
+  mode: "RANKED" | "X5" = "X5",
+): number {
   if (partidas <= 0) {
     return 0;
   }
@@ -25,6 +31,11 @@ export function calculateScore(kills: number, deaths: number, partidas: number, 
   }
 
   const partidasWeight = Math.sqrt(partidas / (partidas + 3));
+
+  if (mode === "RANKED") {
+    return kd * partidasWeight;
+  }
+
   const winBonus = 1 + (vitorias / partidas) * 0.3;
 
   return kd * partidasWeight * winBonus;
