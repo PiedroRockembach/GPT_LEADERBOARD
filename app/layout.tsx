@@ -1,7 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Orbitron, Rajdhani } from "next/font/google";
-import Script from "next/script";
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -28,7 +27,6 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${orbitron.variable} ${rajdhani.variable}`} suppressHydrationWarning>
         {/* TODO: CSP HEADERS */}
-        <Script src="https://discord.com/api/embedded-app-sdk.js" strategy="beforeInteractive" />
         {children}
       </body>
     </html>

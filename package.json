@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@discord/embedded-app-sdk": "^2.4.1",
     "@neondatabase/serverless": "^1.0.2",
     "next": "^15.5.14",
     "react": "19.0.0",

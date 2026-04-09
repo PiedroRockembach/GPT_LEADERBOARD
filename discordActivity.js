@@ -1,4 +1,5 @@
 import { DISCORD_CONFIG } from "./discord.config.js";
+import { DiscordSDK as EmbeddedDiscordSDK } from "@discord/embedded-app-sdk";
 
 let discordSdk = null;
 let subscribed = false;
@@ -68,6 +69,10 @@ function getEnvSnapshot() {
 }
 
 function getDiscordSdkCtor() {
+  if (typeof EmbeddedDiscordSDK === "function") {
+    return EmbeddedDiscordSDK;
+  }
+
   if (typeof window === "undefined") {
     return null;
   }
@@ -98,13 +103,12 @@ function isDiscordHost() {
     return false;
   }
 
-  const hasDiscordGlobal = typeof getDiscordSdkCtor() === "function";
   const referrer = typeof document !== "undefined" ? document.referrer : "";
   const fromDiscordReferrer = /discord(app)?\.com/i.test(referrer);
   const flags = getQueryParamFlags();
   const hasActivityParams = flags.hasFrameId || flags.hasInstanceId || flags.hasGuildId;
 
-  return isInIframe() && (hasDiscordGlobal || fromDiscordReferrer || hasActivityParams);
+  return isInIframe() && (fromDiscordReferrer || hasActivityParams);
 }
 
 function parseSharedPayload(payload) {
@@ -170,7 +174,7 @@ export async function initDiscordActivity() {
     const DiscordSDKCtor = getDiscordSdkCtor();
 
     if (typeof DiscordSDKCtor !== "function") {
-      throw new Error("DiscordSDK constructor not found. Ensure embedded-app-sdk script loaded.");
+      throw new Error("DiscordSDK constructor not found.");
     }
 
     discordSdk = new DiscordSDKCtor(DISCORD_CONFIG.CLIENT_ID);
@@ -236,7 +240,7 @@ export function debugDiscordActivity() {
     clientIdPreview: getClientIdPreview(DISCORD_CONFIG.CLIENT_ID),
     isIframe: isInIframe(),
     isDiscordEnvironment: isDiscordHost(),
-    sdkLoaded: typeof getDiscordSdkCtor() === "function",
+    sdkLoaded: Boolean(discordSdk),
     scriptTagLoaded: getScriptLoaded(),
     readyState,
     lastError,
