@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { calculateKd, calculateScore, calculateWinRate } from "@/lib/kd";
 import { Player } from "@/lib/types";
-import { initDiscordActivity, setSharedState, subscribeSharedState } from "@/discordActivity.js";
+import { debugDiscordActivity, initDiscordActivity, setSharedState, subscribeSharedState } from "@/discordActivity.js";
 
 type LeaderboardMode = "RANKED" | "X5";
 
@@ -31,6 +31,30 @@ type SharedLeaderboardState = {
   mode: LeaderboardMode;
   players: Player[];
   source: string;
+};
+
+type DiscordDebugState = {
+  clientId: string;
+  clientIdPreview: string;
+  isIframe: boolean;
+  isDiscordEnvironment: boolean;
+  sdkLoaded: boolean;
+  scriptTagLoaded: boolean;
+  readyState: "idle" | "loading" | "ready" | "error" | "skipped";
+  lastError: string | null;
+  queryFlags: {
+    hasFrameId: boolean;
+    hasInstanceId: boolean;
+    hasGuildId: boolean;
+  };
+  env: {
+    NEXT_PUBLIC_DISCORD_CLIENT_ID: string;
+    NEXT_PUBLIC_CLIENT_ID: string;
+    NEXT_PUBLIC_DISCORD_APP_ID: string;
+    VITE_DISCORD_CLIENT_ID: string;
+    VITE_CLIENT_ID: string;
+    VITE_DISCORD_APP_ID: string;
+  };
 };
 
 function createClientId(): string {
@@ -131,6 +155,9 @@ export default function Home() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [isDiscordActivity, setIsDiscordActivity] = useState(false);
   const [discordReady, setDiscordReady] = useState(false);
+  const [discordBootstrapping, setDiscordBootstrapping] = useState(true);
+  const [discordError, setDiscordError] = useState<string | null>(null);
+  const [discordDebug, setDiscordDebug] = useState<DiscordDebugState | null>(null);
   const clientIdRef = useRef<string>(createClientId());
   const applyingRemoteRef = useRef(false);
   const lastSharedSignatureRef = useRef("");
@@ -142,51 +169,71 @@ export default function Home() {
 
     async function bootstrapActivity() {
       setLoading(true);
+      setDiscordBootstrapping(true);
+      setDiscordError(null);
 
-      // TODO: CALL initDiscordActivity()
-      const { isDiscordActivity: embedded } = await initDiscordActivity();
+      try {
+        const initialDebug = debugDiscordActivity() as DiscordDebugState;
+        setDiscordDebug(initialDebug);
 
-      setIsDiscordActivity(embedded);
-      setDiscordReady(embedded);
+        const init = await initDiscordActivity();
 
-      if (embedded) {
-        unsubscribe = subscribeSharedState((incomingState: SharedLeaderboardState) => {
-          if (!incomingState || incomingState.source === clientIdRef.current) {
-            return;
-          }
+        setIsDiscordActivity(init.isDiscordActivity);
+        setDiscordReady(init.ready);
 
-          const nextMode = incomingState.mode === "X5" ? "X5" : "RANKED";
-          const nextPlayers = sortPlayers(
-            (incomingState.players ?? []).map((player) => ({
-              ...player,
-              mode: nextMode,
-              assists: Number(player.assists ?? 0),
-              vitorias: Number(player.vitorias ?? 0),
-              kills: Number(player.kills ?? 0),
-              deaths: Number(player.deaths ?? 0),
-              partidas: Number(player.partidas ?? 0),
-            })),
-            nextMode,
-          );
+        if (init.error) {
+          setDiscordError(init.error);
+        }
 
-          const signature = JSON.stringify({ mode: nextMode, players: nextPlayers });
+        const refreshedDebug = debugDiscordActivity() as DiscordDebugState;
+        setDiscordDebug(refreshedDebug);
 
-          if (signature === lastSharedSignatureRef.current) {
-            return;
-          }
+        if (init.isDiscordActivity && init.ready) {
+          unsubscribe = subscribeSharedState((incomingState: SharedLeaderboardState) => {
+            if (!incomingState || incomingState.source === clientIdRef.current) {
+              return;
+            }
 
-          applyingRemoteRef.current = true;
-          setMode(nextMode);
-          setPlayers(nextPlayers);
-          lastSharedSignatureRef.current = signature;
-          queueMicrotask(() => {
-            applyingRemoteRef.current = false;
+            const nextMode = incomingState.mode === "X5" ? "X5" : "RANKED";
+            const nextPlayers = sortPlayers(
+              (incomingState.players ?? []).map((player) => ({
+                ...player,
+                mode: nextMode,
+                assists: Number(player.assists ?? 0),
+                vitorias: Number(player.vitorias ?? 0),
+                kills: Number(player.kills ?? 0),
+                deaths: Number(player.deaths ?? 0),
+                partidas: Number(player.partidas ?? 0),
+              })),
+              nextMode,
+            );
+
+            const signature = JSON.stringify({ mode: nextMode, players: nextPlayers });
+
+            if (signature === lastSharedSignatureRef.current) {
+              return;
+            }
+
+            applyingRemoteRef.current = true;
+            setMode(nextMode);
+            setPlayers(nextPlayers);
+            lastSharedSignatureRef.current = signature;
+            queueMicrotask(() => {
+              applyingRemoteRef.current = false;
+            });
           });
-        });
+        }
+      } catch (bootstrapError) {
+        const message = bootstrapError instanceof Error
+          ? bootstrapError.message
+          : "Falha inesperada ao inicializar Discord Activity.";
+        console.error("Discord Activity bootstrap error:", bootstrapError);
+        setDiscordError(message);
+      } finally {
+        setPlayers(loadLocalPlayers(mode));
+        setLoading(false);
+        setDiscordBootstrapping(false);
       }
-
-      setPlayers(loadLocalPlayers(mode));
-      setLoading(false);
     }
 
     void bootstrapActivity();
@@ -324,6 +371,22 @@ export default function Home() {
   return (
     <main className="page-shell">
       <section className="title-card">
+
+        {discordBootstrapping && <p className="muted">Inicializando Discord Activity...</p>}
+        {discordError && <p className="error-box">Discord Activity: {discordError}</p>}
+        {isDiscordActivity && discordDebug && (
+          <details>
+            <summary>Status Discord Activity</summary>
+            <pre>{JSON.stringify({
+              clientId: discordDebug.clientIdPreview,
+              isIframe: discordDebug.isIframe,
+              sdkLoaded: discordDebug.sdkLoaded,
+              readyState: discordDebug.readyState,
+              scriptTagLoaded: discordDebug.scriptTagLoaded,
+              queryFlags: discordDebug.queryFlags,
+            }, null, 2)}</pre>
+          </details>
+        )}
 
         <h1>Ranking The Jokers Killers</h1>
         <p>

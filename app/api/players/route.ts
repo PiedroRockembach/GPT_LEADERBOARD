@@ -3,7 +3,7 @@ import { addPlayer, deletePlayer, listPlayers, updatePlayer, type LeaderboardMod
 import { PlayerInput } from "@/lib/types";
 
 function parseMode(value: unknown): LeaderboardMode {
-  return value === "X5" ? "RANKED" : "X5";
+  return value === "X5" ? "X5" : "RANKED";
 }
 
 function validateInput(body: unknown): { valid: true; data: PlayerInput } | { valid: false; message: string } {

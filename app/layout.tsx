@@ -27,6 +27,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${orbitron.variable} ${rajdhani.variable}`} suppressHydrationWarning>
+        {/* TODO: CSP HEADERS */}
         <Script src="https://discord.com/api/embedded-app-sdk.js" strategy="beforeInteractive" />
         {children}
       </body>

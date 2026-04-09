@@ -2,19 +2,109 @@ import { DISCORD_CONFIG } from "./discord.config.js";
 
 let discordSdk = null;
 let subscribed = false;
+let readyState = "idle";
+let lastError = null;
+
+function getClientIdPreview(clientId) {
+  if (!clientId) {
+    return "";
+  }
+
+  if (clientId.length <= 8) {
+    return clientId;
+  }
+
+  return `${clientId.slice(0, 4)}...${clientId.slice(-4)}`;
+}
+
+function getQueryParamFlags() {
+  if (typeof window === "undefined") {
+    return {
+      hasFrameId: false,
+      hasInstanceId: false,
+      hasGuildId: false,
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+
+  return {
+    hasFrameId: params.has("frame_id"),
+    hasInstanceId: params.has("instance_id"),
+    hasGuildId: params.has("guild_id"),
+  };
+}
+
+function isInIframe() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  // TODO: IFRAME SAFE
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
+function getEnvSnapshot() {
+  let importMetaEnv;
+
+  try {
+    importMetaEnv = new Function("return typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : undefined;")();
+  } catch {
+    importMetaEnv = undefined;
+  }
+
+  return {
+    NEXT_PUBLIC_DISCORD_CLIENT_ID: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "",
+    NEXT_PUBLIC_CLIENT_ID: process.env.NEXT_PUBLIC_CLIENT_ID || "",
+    NEXT_PUBLIC_DISCORD_APP_ID: process.env.NEXT_PUBLIC_DISCORD_APP_ID || "",
+    VITE_DISCORD_CLIENT_ID: importMetaEnv?.VITE_DISCORD_CLIENT_ID || "",
+    VITE_CLIENT_ID: importMetaEnv?.VITE_CLIENT_ID || "",
+    VITE_DISCORD_APP_ID: importMetaEnv?.VITE_DISCORD_APP_ID || "",
+  };
+}
+
+function getDiscordSdkCtor() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  if (typeof window.DiscordSDK === "function") {
+    return window.DiscordSDK;
+  }
+
+  if (window.discordSdk && typeof window.discordSdk.DiscordSDK === "function") {
+    return window.discordSdk.DiscordSDK;
+  }
+
+  return null;
+}
+
+function getScriptLoaded() {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  return Array.from(document.querySelectorAll("script[src]")).some((script) =>
+    script.src.includes("discord.com/api/embedded-app-sdk.js"),
+  );
+}
 
 function isDiscordHost() {
   if (typeof window === "undefined") {
     return false;
   }
 
-  const hasDiscordGlobal = typeof window.DiscordSDK === "function";
+  const hasDiscordGlobal = typeof getDiscordSdkCtor() === "function";
   const referrer = typeof document !== "undefined" ? document.referrer : "";
   const fromDiscordReferrer = /discord(app)?\.com/i.test(referrer);
-  const params = new URLSearchParams(window.location.search);
-  const hasActivityParams = params.has("frame_id") || params.has("instance_id") || params.has("guild_id");
+  const flags = getQueryParamFlags();
+  const hasActivityParams = flags.hasFrameId || flags.hasInstanceId || flags.hasGuildId;
 
-  return hasDiscordGlobal || fromDiscordReferrer || hasActivityParams;
+  return isInIframe() && (hasDiscordGlobal || fromDiscordReferrer || hasActivityParams);
 }
 
 function parseSharedPayload(payload) {
@@ -53,35 +143,50 @@ function parseSharedPayload(payload) {
 
 export async function initDiscordActivity() {
   if (typeof window === "undefined") {
-    return { sdk: null, isDiscordActivity: false };
+    return { sdk: null, isDiscordActivity: false, ready: false, readyState: "idle", error: null };
   }
 
-  if (!isDiscordHost()) {
-    return { sdk: null, isDiscordActivity: false };
+  const embedded = isDiscordHost();
+
+  if (!embedded) {
+    readyState = "skipped";
+    lastError = null;
+    return { sdk: null, isDiscordActivity: false, ready: false, readyState, error: null };
   }
 
   if (!DISCORD_CONFIG.CLIENT_ID || DISCORD_CONFIG.CLIENT_ID === "COLOCAR_CLIENT_ID_AQUI") {
-    return { sdk: null, isDiscordActivity: false };
+    readyState = "error";
+    lastError = "Discord CLIENT_ID missing. Configure NEXT_PUBLIC_DISCORD_CLIENT_ID or VITE_DISCORD_CLIENT_ID.";
+    console.error("Discord CLIENT_ID missing");
+    return { sdk: null, isDiscordActivity: embedded, ready: false, readyState, error: lastError };
   }
 
   if (discordSdk) {
-    return { sdk: discordSdk, isDiscordActivity: true };
+    return { sdk: discordSdk, isDiscordActivity: true, ready: readyState === "ready", readyState, error: lastError };
   }
 
   try {
-    const DiscordSDKCtor = window.DiscordSDK;
+    readyState = "loading";
+    const DiscordSDKCtor = getDiscordSdkCtor();
 
     if (typeof DiscordSDKCtor !== "function") {
-      return { sdk: null, isDiscordActivity: false };
+      throw new Error("DiscordSDK constructor not found. Ensure embedded-app-sdk script loaded.");
     }
 
     discordSdk = new DiscordSDKCtor(DISCORD_CONFIG.CLIENT_ID);
-    await discordSdk.ready();
 
-    return { sdk: discordSdk, isDiscordActivity: true };
-  } catch {
+    // TODO: DISCORD READY
+    await discordSdk.ready();
+    readyState = "ready";
+    lastError = null;
+
+    return { sdk: discordSdk, isDiscordActivity: true, ready: true, readyState, error: null };
+  } catch (error) {
     discordSdk = null;
-    return { sdk: null, isDiscordActivity: false };
+    readyState = "error";
+    lastError = error instanceof Error ? error.message : "Unknown Discord SDK initialization error.";
+    console.error("Discord SDK init failed:", error);
+    return { sdk: null, isDiscordActivity: true, ready: false, readyState, error: lastError };
   }
 }
 
@@ -92,7 +197,8 @@ export async function setSharedState(state) {
 
   try {
     await discordSdk.commands.setActivityInstanceState({ state });
-  } catch {
+  } catch (error) {
+    console.error("Discord setActivityInstanceState failed:", error);
     // Silent fallback: app must keep working outside Discord sync.
   }
 }
@@ -121,4 +227,24 @@ export function subscribeSharedState(callback) {
 
     subscribed = false;
   };
+}
+
+export function debugDiscordActivity() {
+  const flags = getQueryParamFlags();
+  const info = {
+    clientId: DISCORD_CONFIG.CLIENT_ID,
+    clientIdPreview: getClientIdPreview(DISCORD_CONFIG.CLIENT_ID),
+    isIframe: isInIframe(),
+    isDiscordEnvironment: isDiscordHost(),
+    sdkLoaded: typeof getDiscordSdkCtor() === "function",
+    scriptTagLoaded: getScriptLoaded(),
+    readyState,
+    lastError,
+    queryFlags: flags,
+    env: getEnvSnapshot(),
+  };
+
+  console.debug("[Discord Activity Debug]", info);
+
+  return info;
 }
