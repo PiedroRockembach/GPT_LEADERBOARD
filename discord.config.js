@@ -1,0 +1,4 @@
+export const DISCORD_CONFIG = {
+  // TODO: ADD DISCORD CLIENT ID
+  CLIENT_ID: process.env.NEXT_DISCORD_CLIENT_ID || '',
+};

@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { calculateKd, calculateScore, calculateWinRate } from "@/lib/kd";
 import { Player } from "@/lib/types";
+import { initDiscordActivity, setSharedState, subscribeSharedState } from "@/discordActivity.js";
 
 type LeaderboardMode = "RANKED" | "X5";
 
@@ -24,6 +25,102 @@ const initialForm: FormState = {
   partidas: "",
 };
 
+const LOCAL_STORAGE_KEY = "leaderboard_state_v1";
+
+type SharedLeaderboardState = {
+  mode: LeaderboardMode;
+  players: Player[];
+  source: string;
+};
+
+function createClientId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function sortPlayers(players: Player[], mode: LeaderboardMode): Player[] {
+  return [...players].sort((a, b) => {
+    const bScore = calculateScore(b.kills, b.deaths, b.assists, b.partidas, b.vitorias, mode);
+    const aScore = calculateScore(a.kills, a.deaths, a.assists, a.partidas, a.vitorias, mode);
+
+    if (bScore !== aScore) {
+      return bScore - aScore;
+    }
+
+    if (b.vitorias !== a.vitorias) {
+      return b.vitorias - a.vitorias;
+    }
+
+    const bKd = calculateKd(b.kills, b.deaths);
+    const aKd = calculateKd(a.kills, a.deaths);
+
+    if (bKd !== aKd) {
+      return bKd - aKd;
+    }
+
+    return b.partidas - a.partidas;
+  });
+}
+
+function loadLocalPlayers(mode: LeaderboardMode): Player[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as Partial<Record<LeaderboardMode, Player[]>>;
+    const items = parsed[mode] ?? [];
+
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return sortPlayers(
+      items
+        .filter((item) => item && typeof item === "object")
+        .map((item) => ({
+          id: String(item.id),
+          mode,
+          nome: String(item.nome ?? ""),
+          vitorias: Number(item.vitorias ?? 0),
+          kills: Number(item.kills ?? 0),
+          deaths: Number(item.deaths ?? 0),
+          assists: Number(item.assists ?? 0),
+          partidas: Number(item.partidas ?? 0),
+        })),
+      mode,
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalPlayers(mode: LeaderboardMode, players: Player[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const currentRaw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    const current = currentRaw ? (JSON.parse(currentRaw) as Partial<Record<LeaderboardMode, Player[]>>) : {};
+
+    current[mode] = players.map((player) => ({ ...player, mode }));
+
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(current));
+  } catch {
+    // Keep app functional even if localStorage is unavailable.
+  }
+}
+
 export default function Home() {
   const [mode, setMode] = useState<LeaderboardMode>("RANKED");
   const [players, setPlayers] = useState<Player[]>([]);
@@ -32,33 +129,112 @@ export default function Home() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [isDiscordActivity, setIsDiscordActivity] = useState(false);
+  const [discordReady, setDiscordReady] = useState(false);
+  const clientIdRef = useRef<string>(createClientId());
+  const applyingRemoteRef = useRef(false);
+  const lastSharedSignatureRef = useRef("");
 
   const title = useMemo(() => (editingId ? "Editar Jogador" : "Adicionar Jogador"), [editingId]);
 
-  async function fetchPlayers(selectedMode: LeaderboardMode) {
-    setLoading(true);
-    setError(null);
+  useEffect(() => {
+    let unsubscribe = () => {};
 
-    try {
-      const response = await fetch(`/api/players?mode=${selectedMode}`, { cache: "no-store" });
+    async function bootstrapActivity() {
+      setLoading(true);
 
-      if (!response.ok) {
-        throw new Error("Falha ao buscar leaderboard.");
+      // TODO: CALL initDiscordActivity()
+      const { isDiscordActivity: embedded } = await initDiscordActivity();
+
+      setIsDiscordActivity(embedded);
+      setDiscordReady(embedded);
+
+      if (embedded) {
+        unsubscribe = subscribeSharedState((incomingState: SharedLeaderboardState) => {
+          if (!incomingState || incomingState.source === clientIdRef.current) {
+            return;
+          }
+
+          const nextMode = incomingState.mode === "X5" ? "X5" : "RANKED";
+          const nextPlayers = sortPlayers(
+            (incomingState.players ?? []).map((player) => ({
+              ...player,
+              mode: nextMode,
+              assists: Number(player.assists ?? 0),
+              vitorias: Number(player.vitorias ?? 0),
+              kills: Number(player.kills ?? 0),
+              deaths: Number(player.deaths ?? 0),
+              partidas: Number(player.partidas ?? 0),
+            })),
+            nextMode,
+          );
+
+          const signature = JSON.stringify({ mode: nextMode, players: nextPlayers });
+
+          if (signature === lastSharedSignatureRef.current) {
+            return;
+          }
+
+          applyingRemoteRef.current = true;
+          setMode(nextMode);
+          setPlayers(nextPlayers);
+          lastSharedSignatureRef.current = signature;
+          queueMicrotask(() => {
+            applyingRemoteRef.current = false;
+          });
+        });
       }
 
-      const data = (await response.json()) as Player[];
-      setPlayers(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro inesperado.");
-    } finally {
+      setPlayers(loadLocalPlayers(mode));
       setLoading(false);
     }
-  }
+
+    void bootstrapActivity();
+
+    return () => {
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     clearForm();
-    void fetchPlayers(mode);
-  }, [mode]);
+
+    if (!isDiscordActivity) {
+      setPlayers(loadLocalPlayers(mode));
+    }
+  }, [mode, isDiscordActivity]);
+
+  useEffect(() => {
+    if (loading || applyingRemoteRef.current) {
+      return;
+    }
+
+    if (!isDiscordActivity) {
+      saveLocalPlayers(mode, players);
+      return;
+    }
+
+    if (!discordReady) {
+      return;
+    }
+
+    const state: SharedLeaderboardState = {
+      mode,
+      players,
+      source: clientIdRef.current,
+    };
+
+    const signature = JSON.stringify({ mode, players });
+
+    if (signature === lastSharedSignatureRef.current) {
+      return;
+    }
+
+    lastSharedSignatureRef.current = signature;
+    // TODO: CONNECT LEADERBOARD STATE
+    void setSharedState(state);
+  }, [mode, players, loading, isDiscordActivity, discordReady]);
 
   function clearForm() {
     setForm(initialForm);
@@ -83,7 +259,7 @@ export default function Home() {
     setError(null);
 
     const payload = {
-      ...(editingId ? { id: editingId } : {}),
+      id: editingId ?? createClientId(),
       mode,
       nome: form.nome,
       vitorias: mode === "RANKED" ? 0 : Number(form.vitorias),
@@ -93,24 +269,37 @@ export default function Home() {
       partidas: Number(form.partidas),
     };
 
-    const method = editingId ? "PUT" : "POST";
-
     try {
-      const response = await fetch("/api/players", {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const nextPlayer: Player = {
+        id: payload.id,
+        mode,
+        nome: payload.nome.trim(),
+        vitorias: payload.vitorias,
+        kills: payload.kills,
+        deaths: payload.deaths,
+        assists: payload.assists,
+        partidas: payload.partidas,
+      };
 
-      if (!response.ok) {
-        const data = (await response.json()) as { message?: string };
-        throw new Error(data.message ?? "Falha ao salvar registro.");
+      if (!nextPlayer.nome) {
+        throw new Error("Nome é obrigatório.");
       }
 
+      const numericFields = [nextPlayer.vitorias, nextPlayer.kills, nextPlayer.deaths, nextPlayer.assists, nextPlayer.partidas];
+      if (numericFields.some((value) => Number.isNaN(value) || value < 0)) {
+        throw new Error("Preencha apenas números válidos maiores ou iguais a zero.");
+      }
+
+      setPlayers((currentPlayers) => {
+        const exists = currentPlayers.some((player) => player.id === nextPlayer.id);
+        const updatedPlayers = exists
+          ? currentPlayers.map((player) => (player.id === nextPlayer.id ? nextPlayer : player))
+          : [...currentPlayers, nextPlayer];
+
+        return sortPlayers(updatedPlayers, mode);
+      });
+
       clearForm();
-      await fetchPlayers(mode);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado.");
     } finally {
@@ -122,24 +311,11 @@ export default function Home() {
     setError(null);
 
     try {
-      const response = await fetch("/api/players", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id }),
-      });
-
-      if (!response.ok) {
-        const data = (await response.json()) as { message?: string };
-        throw new Error(data.message ?? "Falha ao remover registro.");
-      }
-
       if (editingId === id) {
         clearForm();
       }
 
-      await fetchPlayers(mode);
+      setPlayers((currentPlayers) => currentPlayers.filter((player) => player.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado.");
     }
