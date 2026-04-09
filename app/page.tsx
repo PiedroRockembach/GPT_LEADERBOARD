@@ -86,7 +86,7 @@ export default function Home() {
       ...(editingId ? { id: editingId } : {}),
       mode,
       nome: form.nome,
-      vitorias: Number(form.vitorias),
+      vitorias: mode === "RANKED" ? 0 : Number(form.vitorias),
       kills: Number(form.kills),
       deaths: Number(form.deaths),
       assists: Number(form.assists),
@@ -151,7 +151,15 @@ export default function Home() {
 
         <h1>Ranking The Jokers Killers</h1>
         <p>
-          Ranking ordenado por <strong>Score</strong>, com base em K/D, partidas e vitórias.
+          {mode === "RANKED" ? (
+            <>
+              Ranking ordenado por <strong>Score</strong>, com base em K/D e partidas.
+            </>
+          ) : (
+            <>
+              Ranking ordenado por <strong>Score</strong>, com base em K/D, partidas e vitórias.
+            </>
+          )}
         </p>
         <div className="mode-switcher">
           <button
@@ -186,16 +194,18 @@ export default function Home() {
             />
           </label>
 
-          <label>
-            Vitórias
-            <input
-              required
-              type="number"
-              min="0"
-              value={form.vitorias}
-              onChange={(event) => setForm((prev) => ({ ...prev, vitorias: event.target.value }))}
-            />
-          </label>
+          {mode !== "RANKED" && (
+            <label>
+              Vitórias
+              <input
+                required
+                type="number"
+                min="0"
+                value={form.vitorias}
+                onChange={(event) => setForm((prev) => ({ ...prev, vitorias: event.target.value }))}
+              />
+            </label>
+          )}
 
           <label>
             Kills
@@ -273,7 +283,8 @@ export default function Home() {
                     <th>K/D</th>
                     <th>K/D/A</th>
                     <th>Nº partidas</th>
-                    <th>WR</th>
+                    {mode !== "RANKED" && <th>Vitórias</th>}
+                    {mode !== "RANKED" && <th>WR</th>}
                     <th>Score</th>
                     <th>Ações</th>
                   </tr>
@@ -281,7 +292,7 @@ export default function Home() {
                 <tbody>
                   {players.map((player, index) => {
                     const kd = calculateKd(player.kills, player.deaths);
-                    const wr = calculateWinRate(player.vitorias, player.partidas);
+                    const wr = mode === "RANKED" ? null : calculateWinRate(player.vitorias, player.partidas);
                     const score = calculateScore(player.kills, player.deaths, player.partidas, player.vitorias, mode);
 
                     return (
@@ -291,7 +302,8 @@ export default function Home() {
                         <td data-label="K/D">{kd === Number.POSITIVE_INFINITY ? "∞" : kd.toFixed(2)}</td>
                         <td data-label="K/D/A">{player.kills}/{player.deaths}/{player.assists}</td>
                         <td data-label="Nº partidas">{player.partidas}</td>
-                        <td data-label="WR">{wr.toFixed(1)}%</td>
+                        {mode !== "RANKED" && <td data-label="Vitórias">{player.vitorias}</td>}
+                        {mode !== "RANKED" && <td data-label="WR">{wr?.toFixed(1)}%</td>}
                         <td data-label="Score">{Number.isFinite(score) ? score.toFixed(3) : "∞"}</td>
                         <td data-label="Ações" className="actions">
                           <button type="button" className="icon-button" onClick={() => fillForm(player)}>

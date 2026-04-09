@@ -14,7 +14,7 @@ const rajdhani = Rajdhani({
 });
 
 export const metadata: Metadata = {
-  title: "E-Sports Leaderboard",
+  title: "The Jokers Killers",
   description: "Leaderboard com backend integrado usando Next.js",
 };
 
