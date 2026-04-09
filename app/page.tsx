@@ -89,7 +89,7 @@ export default function Home() {
       vitorias: mode === "RANKED" ? 0 : Number(form.vitorias),
       kills: Number(form.kills),
       deaths: Number(form.deaths),
-      assists: Number(form.assists),
+      assists: mode === "RANKED" ? 0 : Number(form.assists),
       partidas: Number(form.partidas),
     };
 
@@ -229,16 +229,18 @@ export default function Home() {
             />
           </label>
 
-          <label>
-            Assists
-            <input
-              required
-              type="number"
-              min="0"
-              value={form.assists}
-              onChange={(event) => setForm((prev) => ({ ...prev, assists: event.target.value }))}
-            />
-          </label>
+          {mode !== "RANKED" && (
+            <label>
+              Assists
+              <input
+                required
+                type="number"
+                min="0"
+                value={form.assists}
+                onChange={(event) => setForm((prev) => ({ ...prev, assists: event.target.value }))}
+              />
+            </label>
+          )}
 
           <label>
             Partidas
@@ -293,7 +295,7 @@ export default function Home() {
                   {players.map((player, index) => {
                     const kd = calculateKd(player.kills, player.deaths);
                     const wr = mode === "RANKED" ? null : calculateWinRate(player.vitorias, player.partidas);
-                    const score = calculateScore(player.kills, player.deaths, player.partidas, player.vitorias, mode);
+                    const score = calculateScore(player.kills, player.deaths, player.assists, player.partidas, player.vitorias, mode);
 
                     return (
                       <tr key={player.id}>
