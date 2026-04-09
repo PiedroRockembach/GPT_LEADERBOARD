@@ -13,8 +13,8 @@ const DEFAULT_MODE: LeaderboardMode = "RANKED";
 
 function sortPlayers(players: Player[]): Player[] {
   return players.sort((a, b) => {
-    const bScore = calculateScore(b.kills, b.deaths, b.partidas, b.vitorias, b.mode);
-    const aScore = calculateScore(a.kills, a.deaths, a.partidas, a.vitorias, a.mode);
+    const bScore = calculateScore(b.kills, b.deaths, a.assists,b.partidas, b.vitorias, b.mode);
+    const aScore = calculateScore(a.kills, a.deaths, a.assists,a.partidas, a.vitorias, a.mode);
     if (bScore !== aScore) {
       return bScore - aScore;
     }
