@@ -40,7 +40,7 @@ export function calculateScore(
   @param partidas - Total number of matches played
 
   Calculates the score for a player based on their performance in ranked matches. The score is influenced by the player's kill-death ratio (KD), the number of matches played, and the win rate. The formula for ranked matches is:
-  Score = (kills / deaths) × √(partidas / (partidas + 3))
+  Score = (kills / deaths) × √(partidas / (partidas + 10))
 */
 function calculateRankedScore(
   kills: number,
@@ -49,7 +49,7 @@ function calculateRankedScore(
 
 ): number {
   const kd = calculateKd(kills, deaths);
-  const score = kd * Math.sqrt(partidas / (partidas + 3));
+  const score = kd * Math.sqrt(partidas / (partidas + 10));
   return score;  
 }
 
